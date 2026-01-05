@@ -1,0 +1,44 @@
+{
+  "name": "@seriphxyz/core",
+  "version": "0.1.11",
+  "description": "Framework-agnostic API client and types for Seriph widgets",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/seriphxyz/core.git"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "homepage": "https://seriph.xyz",
+  "author": "Tim Marks <tim@imothee.xyz>",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "keywords": [
+    "seriph",
+    "api",
+    "forms",
+    "comments",
+    "reactions",
+    "subscribe",
+    "widgets"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}
