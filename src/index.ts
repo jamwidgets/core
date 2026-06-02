@@ -228,6 +228,48 @@ function getHeaders(siteKey: string): Record<string, string> {
 }
 
 // =============================================================================
+// Site config + branding
+// =============================================================================
+
+/** Per-site config exposed at `GET /api/v1/site` (plan-derived flags). */
+export interface SiteConfig {
+  name: string;
+  slug: string;
+  /** False on Free → render the "Powered by JamWidgets" footer. True on Pro/Team → hide it. */
+  hasCustomBranding: boolean;
+}
+
+/** Where the branding footer links. */
+export const POWERED_BY_URL = "https://jamwidgets.com/?utm_source=powered_by";
+export const POWERED_BY_LABEL = "Powered by JamWidgets";
+
+const siteConfigCache = new Map<string, Promise<SiteConfig | null>>();
+
+/**
+ * Fetch (and cache, per endpoint+key) the site config. Returns null on failure.
+ * Used by rendered widgets to decide whether to show the branding footer.
+ */
+export async function fetchSiteConfig(options: JamWidgetsConfig): Promise<SiteConfig | null> {
+  const { endpoint } = options;
+  const siteKey = getSiteKey(options);
+  const cacheKey = `${endpoint ?? DEFAULT_ENDPOINT}::${siteKey}`;
+  const existing = siteConfigCache.get(cacheKey);
+  if (existing) return existing;
+
+  const url = buildUrl(endpoint, "/site");
+  const promise = fetch(url, { headers: getHeaders(siteKey) })
+    .then(async (response) => {
+      if (!response.ok) return null;
+      const data = await response.json();
+      return (data.site_config ?? null) as SiteConfig | null;
+    })
+    .catch(() => null);
+
+  siteConfigCache.set(cacheKey, promise);
+  return promise;
+}
+
+// =============================================================================
 // API Functions - Forms
 // =============================================================================
 
