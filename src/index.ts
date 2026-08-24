@@ -13,6 +13,9 @@ export const DEFAULT_ENDPOINT = "https://jamwidgets.com";
 export const API_PATH = "/api/v1";
 export const VISITOR_STORAGE_KEY = "jamwidgets_visitor_id";
 
+export { getAttributionHeaders, getSessionId } from "./attribution";
+import { getAttributionHeaders } from "./attribution";
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -210,7 +213,7 @@ export function getVisitorId(): string {
 }
 
 /** Get common headers for API requests */
-function getHeaders(siteKey: string): Record<string, string> {
+function getHeaders(siteKey: string, path?: string): Record<string, string> {
   let visitorId: string;
   try {
     visitorId = getVisitorId();
@@ -219,6 +222,7 @@ function getHeaders(siteKey: string): Record<string, string> {
     visitorId = generateUUID();
   }
   return {
+    ...getAttributionHeaders(path),
     "X-Jamwidgets-Key": siteKey,
     "X-Jamwidgets-Visitor": visitorId,
     // Legacy headers for backward compatibility with older server versions
@@ -347,7 +351,7 @@ export async function postComment(options: PostCommentOptions): Promise<Comment>
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      ...getHeaders(siteKey),
+      ...getHeaders(siteKey, pageId),
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -415,7 +419,7 @@ export async function addReaction(
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      ...getHeaders(siteKey),
+      ...getHeaders(siteKey, pageId),
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ reactionType }),
@@ -1558,3 +1562,9 @@ export class ViewCountsController {
     }
   }
 }
+
+export {
+  trackPageview,
+  initAnalytics,
+  type TrackPageviewOptions,
+} from "./beacon";
