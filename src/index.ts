@@ -239,7 +239,7 @@ function getHeaders(siteKey: string, path?: string): Record<string, string> {
 export interface SiteConfig {
   name: string;
   slug: string;
-  /** False on Free → render the "Powered by JamWidgets" footer. True on Pro/Team → hide it. */
+  /** False on Free → render the "Powered by JamWidgets" footer. True on Team → hide it. */
   hasCustomBranding: boolean;
 }
 
