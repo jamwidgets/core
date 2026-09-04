@@ -13,8 +13,8 @@ export const DEFAULT_ENDPOINT = "https://jamwidgets.com";
 export const API_PATH = "/api/v1";
 export const VISITOR_STORAGE_KEY = "jamwidgets_visitor_id";
 
-export { getAttributionHeaders, getSessionId } from "./attribution";
-import { getAttributionHeaders } from "./attribution";
+export { getAttributionHeaders, getSessionId } from "./attribution.js";
+import { getAttributionHeaders } from "./attribution.js";
 
 // =============================================================================
 // Types
@@ -1567,4 +1567,4 @@ export {
   trackPageview,
   initAnalytics,
   type TrackPageviewOptions,
-} from "./beacon";
+} from "./beacon.js";
