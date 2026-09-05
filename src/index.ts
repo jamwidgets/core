@@ -165,7 +165,7 @@ export function resolveConfig(config: Partial<JamWidgetsConfig>): JamWidgetsConf
 let customVisitorId: string | null = null;
 
 /** Generate a random UUID v4 */
-function generateUUID(): string {
+export function generateUUID(): string {
   // Use crypto.randomUUID if available, otherwise fallback
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
