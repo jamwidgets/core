@@ -1,6 +1,6 @@
 {
   "name": "@jamwidgets/core",
-  "version": "0.3.4",
+  "version": "0.4.0",
   "description": "Framework-agnostic API client and types for Jamwidgets",
   "repository": {
     "type": "git",

@@ -3,7 +3,7 @@
 > **Note:** This repo is a read-only mirror. Source lives in a private monorepo.
 > For issues/PRs, please open them here and we'll sync changes back.
 
-Framework-agnostic API client, types, and headless controllers for [JamWidgets](https://jamwidgets.com) widgets.
+Framework-agnostic API client, types, and headless controllers for [Jamwidgets](https://jamwidgets.com) widgets.
 
 ## Installation
 
@@ -261,10 +261,10 @@ All types are exported for TypeScript users:
 
 ```ts
 import type {
-  JamWidgetsConfig,
+  JamwidgetsConfig,
   Comment,
   ReactionCounts,
-  JamWidgetsPost,
+  JamwidgetsPost,
   Poll,
   Announcement,
   FeedbackType,

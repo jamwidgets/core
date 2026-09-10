@@ -2,11 +2,11 @@ import {
   API_PATH,
   DEFAULT_ENDPOINT,
   getConfigFromMeta,
-  type JamWidgetsConfig,
+  type JamwidgetsConfig,
 } from "./index.js";
 import { getSessionId } from "./attribution.js";
 
-export interface TrackPageviewOptions extends Partial<JamWidgetsConfig> {
+export interface TrackPageviewOptions extends Partial<JamwidgetsConfig> {
   /** Path to record. Defaults to `location.pathname`. */
   path?: string;
 }

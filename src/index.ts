@@ -20,15 +20,15 @@ import { getAttributionHeaders } from "./attribution.js";
 // Types
 // =============================================================================
 
-export interface JamWidgetsConfig {
+export interface JamwidgetsConfig {
   /** Your site key (required) */
   siteKey: string;
   /** Base URL of your Jamwidgets instance (default: 'https://jamwidgets.com') */
   endpoint?: string;
 }
 
-/** @deprecated Use JamWidgetsConfig instead */
-export type SeriphConfig = JamWidgetsConfig;
+/** @deprecated Use JamwidgetsConfig instead */
+export type SeriphConfig = JamwidgetsConfig;
 
 export interface Comment {
   id: string;
@@ -124,7 +124,7 @@ export function getConfigFromMeta(): { siteKey: string; endpoint?: string } | nu
 }
 
 /** Get site key from config, with fallback to meta tag */
-export function getSiteKey(config: JamWidgetsConfig): string {
+export function getSiteKey(config: JamwidgetsConfig): string {
   if (config.siteKey) {
     return config.siteKey;
   }
@@ -141,7 +141,7 @@ export function getSiteKey(config: JamWidgetsConfig): string {
 }
 
 /** Resolve full config, merging props with meta tag fallbacks */
-export function resolveConfig(config: Partial<JamWidgetsConfig>): JamWidgetsConfig {
+export function resolveConfig(config: Partial<JamwidgetsConfig>): JamwidgetsConfig {
   const metaConfig = getConfigFromMeta();
 
   const siteKey = config.siteKey || metaConfig?.siteKey;
@@ -232,28 +232,28 @@ function getHeaders(siteKey: string, path?: string): Record<string, string> {
 }
 
 // =============================================================================
-// Site config + branding
+// Site config + powered-by attribution
 // =============================================================================
 
 /** Per-site config exposed at `GET /api/v1/site` (plan-derived flags). */
 export interface SiteConfig {
   name: string;
   slug: string;
-  /** False on Free → render the "Powered by JamWidgets" footer. True on Team → hide it. */
-  hasCustomBranding: boolean;
+  /** True on Free; render the "Powered by Jamwidgets" attribution. */
+  showPoweredBy: boolean;
 }
 
-/** Where the branding footer links. */
+/** Where the powered-by footer links. */
 export const POWERED_BY_URL = "https://jamwidgets.com/?utm_source=powered_by";
-export const POWERED_BY_LABEL = "Powered by JamWidgets";
+export const POWERED_BY_LABEL = "Powered by Jamwidgets";
 
 const siteConfigCache = new Map<string, Promise<SiteConfig | null>>();
 
 /**
  * Fetch (and cache, per endpoint+key) the site config. Returns null on failure.
- * Used by rendered widgets to decide whether to show the branding footer.
+ * Used by rendered widgets to decide whether to show the powered-by footer.
  */
-export async function fetchSiteConfig(options: JamWidgetsConfig): Promise<SiteConfig | null> {
+export async function fetchSiteConfig(options: JamwidgetsConfig): Promise<SiteConfig | null> {
   const { endpoint } = options;
   const siteKey = getSiteKey(options);
   const cacheKey = `${endpoint ?? DEFAULT_ENDPOINT}::${siteKey}`;
@@ -277,7 +277,7 @@ export async function fetchSiteConfig(options: JamWidgetsConfig): Promise<SiteCo
 // API Functions - Forms
 // =============================================================================
 
-export interface SubmitFormOptions extends JamWidgetsConfig {
+export interface SubmitFormOptions extends JamwidgetsConfig {
   formSlug: string;
   data: Record<string, unknown>;
   /** Form load timestamp for spam detection (auto-set if not provided) */
@@ -314,7 +314,7 @@ export async function submitForm(options: SubmitFormOptions): Promise<FormSubmit
 // API Functions - Comments
 // =============================================================================
 
-export interface FetchCommentsOptions extends JamWidgetsConfig {
+export interface FetchCommentsOptions extends JamwidgetsConfig {
   pageId: string;
 }
 
@@ -335,7 +335,7 @@ export async function fetchComments(options: FetchCommentsOptions): Promise<Comm
   return data.comment_threads || [];
 }
 
-export interface PostCommentOptions extends JamWidgetsConfig {
+export interface PostCommentOptions extends JamwidgetsConfig {
   pageId: string;
   authorName: string;
   authorEmail?: string;
@@ -374,7 +374,7 @@ export async function postComment(options: PostCommentOptions): Promise<Comment>
 // API Functions - Reactions
 // =============================================================================
 
-export interface FetchReactionsOptions extends JamWidgetsConfig {
+export interface FetchReactionsOptions extends JamwidgetsConfig {
   pageId: string;
 }
 
@@ -404,7 +404,7 @@ export async function fetchReactions(options: FetchReactionsOptions): Promise<Fe
   };
 }
 
-export interface AddReactionOptions extends JamWidgetsConfig {
+export interface AddReactionOptions extends JamwidgetsConfig {
   pageId: string;
   reactionType?: string;
 }
@@ -433,7 +433,7 @@ export async function addReaction(
   return data.reaction;
 }
 
-export interface RemoveReactionOptions extends JamWidgetsConfig {
+export interface RemoveReactionOptions extends JamwidgetsConfig {
   pageId: string;
   reactionType?: string;
 }
@@ -466,7 +466,7 @@ export async function removeReaction(
 // API Functions - Subscriptions
 // =============================================================================
 
-export interface SubscribeOptions extends JamWidgetsConfig {
+export interface SubscribeOptions extends JamwidgetsConfig {
   email: string;
 }
 
@@ -495,7 +495,7 @@ export async function subscribe(options: SubscribeOptions): Promise<SubscribeRes
 // API Functions - Posts
 // =============================================================================
 
-export interface FetchPostsOptions extends JamWidgetsConfig {
+export interface FetchPostsOptions extends JamwidgetsConfig {
   /** Filter posts by tag */
   tag?: string;
   /** Maximum number of posts to fetch (default: 500) */
@@ -525,7 +525,7 @@ export async function fetchPosts(options: FetchPostsOptions): Promise<Jamwidgets
   return data.posts;
 }
 
-export interface FetchPostOptions extends JamWidgetsConfig {
+export interface FetchPostOptions extends JamwidgetsConfig {
   /** The post slug to fetch */
   slug: string;
 }
@@ -555,7 +555,7 @@ export async function fetchPost(options: FetchPostOptions): Promise<JamwidgetsPo
 // API Functions - Waitlist
 // =============================================================================
 
-export interface JoinWaitlistOptions extends JamWidgetsConfig {
+export interface JoinWaitlistOptions extends JamwidgetsConfig {
   email: string;
   name?: string;
   /** Where the signup came from (e.g., "homepage", "blog") */
@@ -594,7 +594,7 @@ export async function joinWaitlist(options: JoinWaitlistOptions): Promise<JoinWa
 // API Functions - Views
 // =============================================================================
 
-export interface ViewCountsOptions extends JamWidgetsConfig {
+export interface ViewCountsOptions extends JamwidgetsConfig {
   pageId: string;
 }
 
@@ -649,7 +649,7 @@ export async function recordView(options: ViewCountsOptions): Promise<RecordView
 
 export type FeedbackType = "bug" | "feature" | "general";
 
-export interface SubmitFeedbackOptions extends JamWidgetsConfig {
+export interface SubmitFeedbackOptions extends JamwidgetsConfig {
   type: FeedbackType;
   content: string;
   email?: string;
@@ -720,7 +720,7 @@ export interface PollWithResults extends Poll {
   userVotes?: string[];
 }
 
-export interface FetchPollOptions extends JamWidgetsConfig {
+export interface FetchPollOptions extends JamwidgetsConfig {
   slug: string;
 }
 
@@ -741,7 +741,7 @@ export async function fetchPoll(options: FetchPollOptions): Promise<PollWithResu
   return data.poll_with_results;
 }
 
-export interface VotePollOptions extends JamWidgetsConfig {
+export interface VotePollOptions extends JamwidgetsConfig {
   slug: string;
   selectedOptions: string[];
 }
@@ -789,7 +789,7 @@ export interface Announcement {
   isDismissible: boolean;
 }
 
-export interface FetchAnnouncementsOptions extends JamWidgetsConfig {}
+export interface FetchAnnouncementsOptions extends JamwidgetsConfig {}
 
 export async function fetchAnnouncements(options: FetchAnnouncementsOptions): Promise<Announcement[]> {
   const { endpoint } = options;
@@ -808,7 +808,7 @@ export async function fetchAnnouncements(options: FetchAnnouncementsOptions): Pr
   return data.announcements || [];
 }
 
-export interface DismissAnnouncementOptions extends JamWidgetsConfig {
+export interface DismissAnnouncementOptions extends JamwidgetsConfig {
   announcementId: number;
 }
 
@@ -886,11 +886,11 @@ export interface ControllerListener<T> {
  * await controller.submit('user@example.com');
  */
 export class SubscribeController {
-  private config: JamWidgetsConfig;
+  private config: JamwidgetsConfig;
   private listeners: Set<ControllerListener<SubscribeState>> = new Set();
   private _state: SubscribeState = { status: "idle", message: null, error: null };
 
-  constructor(config: JamWidgetsConfig) {
+  constructor(config: JamwidgetsConfig) {
     this.config = config;
   }
 
@@ -951,11 +951,11 @@ export class SubscribeController {
  * await controller.join('user@example.com', { name: 'John', source: 'homepage' });
  */
 export class WaitlistController {
-  private config: JamWidgetsConfig;
+  private config: JamwidgetsConfig;
   private listeners: Set<ControllerListener<WaitlistState>> = new Set();
   private _state: WaitlistState = { status: "idle", message: null, position: null, error: null };
 
-  constructor(config: JamWidgetsConfig) {
+  constructor(config: JamwidgetsConfig) {
     this.config = config;
   }
 
@@ -1015,13 +1015,13 @@ export class WaitlistController {
  * Manages state without any DOM/framework dependencies.
  */
 export class FormController {
-  private config: JamWidgetsConfig;
+  private config: JamwidgetsConfig;
   private formSlug: string;
   private listeners: Set<ControllerListener<FormState>> = new Set();
   private loadTime: number;
   private _state: FormState = { status: "idle", message: null, error: null };
 
-  constructor(config: JamWidgetsConfig, formSlug: string) {
+  constructor(config: JamwidgetsConfig, formSlug: string) {
     this.config = config;
     this.formSlug = formSlug;
     this.loadTime = Math.floor(Date.now() / 1000);
@@ -1078,12 +1078,12 @@ export class FormController {
  * Manages state and counts without any DOM/framework dependencies.
  */
 export class ReactionsController {
-  private config: JamWidgetsConfig;
+  private config: JamwidgetsConfig;
   private pageId: string;
   private listeners: Set<ControllerListener<ReactionsState>> = new Set();
   private _state: ReactionsState = { counts: {}, userReactions: [], status: "idle", error: null };
 
-  constructor(config: JamWidgetsConfig, pageId: string) {
+  constructor(config: JamwidgetsConfig, pageId: string) {
     this.config = config;
     this.pageId = pageId;
   }
@@ -1165,12 +1165,12 @@ export class ReactionsController {
  * Manages state and comment list without any DOM/framework dependencies.
  */
 export class CommentsController {
-  private config: JamWidgetsConfig;
+  private config: JamwidgetsConfig;
   private pageId: string;
   private listeners: Set<ControllerListener<CommentsState>> = new Set();
   private _state: CommentsState = { comments: [], status: "idle", error: null };
 
-  constructor(config: JamWidgetsConfig, pageId: string) {
+  constructor(config: JamwidgetsConfig, pageId: string) {
     this.config = config;
     this.pageId = pageId;
   }
@@ -1244,11 +1244,11 @@ export interface FeedbackState {
  * Manages state without any DOM/framework dependencies.
  */
 export class FeedbackController {
-  private config: JamWidgetsConfig;
+  private config: JamwidgetsConfig;
   private listeners: Set<ControllerListener<FeedbackState>> = new Set();
   private _state: FeedbackState = { status: "idle", message: null, error: null };
 
-  constructor(config: JamWidgetsConfig) {
+  constructor(config: JamwidgetsConfig) {
     this.config = config;
   }
 
@@ -1314,12 +1314,12 @@ export interface PollState {
  * Manages poll state, voting, and results.
  */
 export class PollController {
-  private config: JamWidgetsConfig;
+  private config: JamwidgetsConfig;
   private slug: string;
   private listeners: Set<ControllerListener<PollState>> = new Set();
   private _state: PollState = { poll: null, status: "idle", error: null };
 
-  constructor(config: JamWidgetsConfig, slug: string) {
+  constructor(config: JamwidgetsConfig, slug: string) {
     this.config = config;
     this.slug = slug;
   }
@@ -1405,7 +1405,7 @@ export interface AnnouncementsState {
  * Manages announcement list and dismissals.
  */
 export class AnnouncementsController {
-  private config: JamWidgetsConfig;
+  private config: JamwidgetsConfig;
   private listeners: Set<ControllerListener<AnnouncementsState>> = new Set();
   private _state: AnnouncementsState = {
     announcements: [],
@@ -1414,7 +1414,7 @@ export class AnnouncementsController {
     error: null,
   };
 
-  constructor(config: JamWidgetsConfig) {
+  constructor(config: JamwidgetsConfig) {
     this.config = config;
   }
 
@@ -1491,12 +1491,12 @@ export interface ViewCountsState {
  * Tracks page views and unique visitors.
  */
 export class ViewCountsController {
-  private config: JamWidgetsConfig;
+  private config: JamwidgetsConfig;
   private pageId: string;
   private listeners: Set<ControllerListener<ViewCountsState>> = new Set();
   private _state: ViewCountsState;
 
-  constructor(config: JamWidgetsConfig, pageId: string) {
+  constructor(config: JamwidgetsConfig, pageId: string) {
     this.config = config;
     this.pageId = pageId;
     this._state = { pageId, views: 0, uniqueVisitors: 0, status: "idle", error: null };
