@@ -30,14 +30,18 @@ const styles = `
 
 const HTMLElementBase = (globalThis.HTMLElement ?? class {}) as typeof HTMLElement;
 
-function image(photo: GalleryPhoto, className?: string): HTMLImageElement {
+function image(
+  photo: GalleryPhoto,
+  className?: string,
+  galleryDecorative = false,
+): HTMLImageElement {
   const img = document.createElement("img");
   const variants = [...photo.variants].sort((a, b) => a.width - b.width);
   const fallback = variants.at(-1);
   img.src = fallback?.url ?? "";
   img.srcset = variants.map((variant) => `${variant.url} ${variant.width}w`).join(", ");
   img.sizes = "(min-width: 72rem) 25vw, (min-width: 40rem) 50vw, 100vw";
-  img.alt = photo.decorative ? "" : (photo.altText ?? "");
+  img.alt = galleryDecorative || photo.decorative ? "" : (photo.altText ?? "");
   img.loading = "lazy";
   img.decoding = "async";
   if (photo.width) img.width = photo.width;
@@ -123,8 +127,14 @@ function renderGallery(host: GalleryElement, gallery: JamwidgetsGallery, initial
     grid.replaceChildren();
     for (const photo of gallery.photos.filter((item) => !active || item.tags.includes(active))) {
       const figure = document.createElement("figure");
-      const button = document.createElement("button"); button.type = "button"; button.className = "photo"; button.append(image(photo));
-      button.addEventListener("click", () => openViewer(frame, photo)); figure.append(button);
+      const decorative = gallery.decorative || photo.decorative;
+      const control = document.createElement(decorative ? "div" : "button");
+      if (!decorative) {
+        (control as HTMLButtonElement).type = "button";
+        control.addEventListener("click", () => openViewer(frame, photo, gallery.decorative));
+      }
+      control.className = "photo"; control.append(image(photo, undefined, gallery.decorative));
+      figure.append(control);
       if (photo.caption) { const caption = document.createElement("figcaption"); caption.textContent = photo.caption; figure.append(caption); }
       grid.append(figure);
     }
@@ -142,10 +152,10 @@ function renderGallery(host: GalleryElement, gallery: JamwidgetsGallery, initial
   frame.append(grid); draw(); return frame;
 }
 
-function openViewer(frame: HTMLElement, photo: GalleryPhoto) {
+function openViewer(frame: HTMLElement, photo: GalleryPhoto, galleryDecorative = false) {
   const dialog = document.createElement("dialog");
   const close = document.createElement("button"); close.type = "button"; close.className = "close"; close.ariaLabel = "Close photo"; close.textContent = "×"; close.addEventListener("click", () => dialog.close());
-  const full = image(photo); full.loading = "eager"; full.sizes = "100vw"; dialog.append(close, full);
+  const full = image(photo, undefined, galleryDecorative); full.loading = "eager"; full.sizes = "100vw"; dialog.append(close, full);
   if (photo.caption) { const caption = document.createElement("div"); caption.className = "viewer-caption"; caption.textContent = photo.caption; dialog.append(caption); }
   dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
   dialog.addEventListener("close", () => dialog.remove()); frame.append(dialog); dialog.showModal();
@@ -206,7 +216,7 @@ export class JamwidgetsGalleryIndexElement extends GalleryElement {
     const frame = this.frame(); const index = document.createElement("div"); index.className = "index";
     for (const gallery of galleries) {
       const card = document.createElement("button"); card.type = "button"; card.className = "card";
-      if (gallery.cover) { const cover = document.createElement("span"); cover.className = "cover"; cover.append(image(gallery.cover)); card.append(cover); }
+      if (gallery.cover) { const cover = document.createElement("span"); cover.className = "cover"; cover.append(image(gallery.cover, undefined, gallery.decorative)); card.append(cover); }
       const copy = document.createElement("span"); copy.className = "card-copy"; const title = document.createElement("strong"); title.textContent = gallery.title;
       const count = document.createElement("small"); count.textContent = `${gallery.photoCount} photo${gallery.photoCount === 1 ? "" : "s"}`; copy.append(title, count); card.append(copy);
       card.addEventListener("click", () => void this.showGallery(gallery.slug, galleries, true, this.advanceGeneration())); index.append(card);

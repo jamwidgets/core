@@ -95,6 +95,7 @@ export interface JamwidgetsGallery {
   title: string;
   slug: string;
   description?: string;
+  decorative: boolean;
   sortOrder: "manual" | "newest" | "oldest";
   coverPhotoId?: string;
   photos: GalleryPhoto[];
@@ -106,6 +107,7 @@ export interface GallerySummary {
   title: string;
   slug: string;
   description?: string;
+  decorative: boolean;
   cover?: GalleryPhoto;
   photoCount: number;
   publishedAt: string;
