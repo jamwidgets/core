@@ -13,6 +13,15 @@ npm install @jamwidgets/core
 
 This is the base package used by `@jamwidgets/astro`, `@jamwidgets/react`, and `@jamwidgets/solid`. Use it directly when building custom integrations or with any JavaScript framework.
 
+## Gallery elements
+
+```html
+<script type="module" src="https://cdn.jsdelivr.net/npm/@jamwidgets/core@0.5.0/dist/gallery-elements.js"></script>
+<jamwidgets-gallery-index site-key="your-key" deep-link></jamwidgets-gallery-index>
+<jamwidgets-gallery site-key="your-key" slug="field-notes" tag="portraits"></jamwidgets-gallery>
+<jamwidgets-random-photo site-key="your-key" slug="field-notes" seed="homepage"></jamwidgets-random-photo>
+```
+
 ## API Functions
 
 ### Comments

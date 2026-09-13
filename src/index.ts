@@ -71,6 +71,46 @@ export interface JamwidgetsPost {
   publishedAt: string;
 }
 
+export interface GalleryPhotoVariant {
+  width: number;
+  height: number;
+  url: string;
+  fileSize: number;
+}
+
+export interface GalleryPhoto {
+  id: string;
+  filename: string;
+  width?: number;
+  height?: number;
+  variants: GalleryPhotoVariant[];
+  altText?: string;
+  decorative: boolean;
+  caption?: string;
+  tags: string[];
+}
+
+export interface JamwidgetsGallery {
+  id: string;
+  title: string;
+  slug: string;
+  description?: string;
+  sortOrder: "manual" | "newest" | "oldest";
+  coverPhotoId?: string;
+  photos: GalleryPhoto[];
+  publishedAt?: string;
+}
+
+export interface GallerySummary {
+  id: string;
+  title: string;
+  slug: string;
+  description?: string;
+  cover?: GalleryPhoto;
+  photoCount: number;
+  publishedAt: string;
+}
+
 /** @deprecated Use JamwidgetsPost instead */
 export type SeriphPost = JamwidgetsPost;
 
@@ -549,6 +589,81 @@ export async function fetchPost(options: FetchPostOptions): Promise<JamwidgetsPo
 
   const data = await response.json();
   return data.public_post || data;
+}
+
+// =============================================================================
+// API Functions - Galleries
+// =============================================================================
+
+export interface FetchGalleriesOptions extends JamwidgetsConfig {
+  after?: string;
+  limit?: number;
+  /** Site origin sent by build-time loaders for allowed-origin validation. */
+  origin?: string;
+}
+
+export interface GalleryPage {
+  galleries: GallerySummary[];
+  nextCursor?: string;
+}
+
+export async function fetchGalleries(options: FetchGalleriesOptions): Promise<GalleryPage> {
+  const siteKey = getSiteKey(options);
+  const url = new URL(buildUrl(options.endpoint, "/galleries"));
+  url.searchParams.set("limit", String(options.limit ?? 100));
+  if (options.after) url.searchParams.set("after", options.after);
+  const response = await fetch(url, {
+    headers: {
+      ...getHeaders(siteKey),
+      ...(options.origin ? { Origin: options.origin } : {}),
+    },
+  });
+  if (!response.ok) throw new Error(`Failed to fetch galleries: ${response.status}`);
+  return response.json();
+}
+
+export interface FetchGalleryOptions extends JamwidgetsConfig {
+  slug: string;
+  tag?: string;
+  /** Site origin sent by build-time loaders for allowed-origin validation. */
+  origin?: string;
+}
+
+export async function fetchGallery(options: FetchGalleryOptions): Promise<JamwidgetsGallery | null> {
+  const siteKey = getSiteKey(options);
+  const url = new URL(buildUrl(options.endpoint, `/galleries/${encodeURIComponent(options.slug)}`));
+  if (options.tag) url.searchParams.set("tag", options.tag);
+  const response = await fetch(url, {
+    headers: {
+      ...getHeaders(siteKey),
+      ...(options.origin ? { Origin: options.origin } : {}),
+    },
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`Failed to fetch gallery: ${response.status}`);
+  const data = await response.json();
+  return data.gallery ?? data;
+}
+
+export interface FetchRandomPhotoOptions extends FetchGalleryOptions {
+  seed?: string;
+}
+
+export async function fetchRandomPhoto(options: FetchRandomPhotoOptions): Promise<GalleryPhoto | null> {
+  const siteKey = getSiteKey(options);
+  const url = new URL(buildUrl(options.endpoint, `/galleries/${encodeURIComponent(options.slug)}/random`));
+  if (options.tag) url.searchParams.set("tag", options.tag);
+  if (options.seed) url.searchParams.set("seed", options.seed);
+  const response = await fetch(url, {
+    headers: {
+      ...getHeaders(siteKey),
+      ...(options.origin ? { Origin: options.origin } : {}),
+    },
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`Failed to fetch random photo: ${response.status}`);
+  const data = await response.json();
+  return data.gallery_photo ?? data.galleryPhoto ?? data;
 }
 
 // =============================================================================
