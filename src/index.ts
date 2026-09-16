@@ -880,7 +880,7 @@ export async function votePoll(options: VotePollOptions): Promise<VotePollRespon
       ...getHeaders(siteKey),
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ selected_options: selectedOptions }),
+    body: JSON.stringify({ selectedOptions }),
   });
 
   if (!response.ok) {

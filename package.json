@@ -1,6 +1,6 @@
 {
   "name": "@jamwidgets/core",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Framework-agnostic API client and types for Jamwidgets",
   "repository": {
     "type": "git",
@@ -29,7 +29,8 @@
   ],
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "test": "vitest run"
   },
   "keywords": [
     "jamwidgets",
@@ -43,6 +44,7 @@
   ],
   "license": "MIT",
   "devDependencies": {
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   }
 }
