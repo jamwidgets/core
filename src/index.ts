@@ -15,6 +15,8 @@ export const VISITOR_STORAGE_KEY = "jamwidgets_visitor_id";
 
 export { getAttributionHeaders, getSessionId } from "./attribution.js";
 import { getAttributionHeaders } from "./attribution.js";
+import { generateUUID } from "./uuid.js";
+export { generateUUID } from "./uuid.js";
 
 // =============================================================================
 // Types
@@ -205,20 +207,7 @@ export function resolveConfig(config: Partial<JamwidgetsConfig>): JamwidgetsConf
 
 /** Custom visitor ID set by the site (e.g., authenticated user ID) */
 let customVisitorId: string | null = null;
-
-/** Generate a random UUID v4 */
-export function generateUUID(): string {
-  // Use crypto.randomUUID if available, otherwise fallback
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  // Fallback for older environments
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
+let fallbackVisitorId: string | null = null;
 
 /**
  * Set a custom visitor ID (e.g., authenticated user ID).
@@ -239,18 +228,14 @@ export function getVisitorId(): string {
     return customVisitorId;
   }
 
-  // SSR check - localStorage only exists in browser
-  if (typeof window === "undefined" || typeof localStorage === "undefined") {
-    // Return a temporary UUID for SSR - will be replaced client-side
-    return generateUUID();
-  }
-
-  // Use localStorage for anonymous visitors
-  let visitorId = localStorage.getItem(VISITOR_STORAGE_KEY);
-  if (!visitorId) {
-    visitorId = generateUUID();
-    localStorage.setItem(VISITOR_STORAGE_KEY, visitorId);
-  }
+  if (typeof window === "undefined") return generateUUID();
+  let visitorId = "";
+  let storageBlocked = false;
+  try { visitorId = localStorage.getItem(VISITOR_STORAGE_KEY) || ""; } catch { storageBlocked = true; }
+  if (visitorId) return visitorId;
+  visitorId = fallbackVisitorId ?? generateUUID();
+  try { localStorage.setItem(VISITOR_STORAGE_KEY, visitorId); } catch { storageBlocked = true; }
+  fallbackVisitorId = storageBlocked ? visitorId : null;
   return visitorId;
 }
 

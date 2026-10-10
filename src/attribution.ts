@@ -1,23 +1,18 @@
-const SESSION_KEY = "jamwidgets_session_id";
+import { generateUUID } from "./uuid.js";
 
-function createSessionId(): string {
-  return typeof crypto !== "undefined" && crypto.randomUUID
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
+const SESSION_KEY = "jamwidgets_session_id";
+let fallbackSessionId: string | null = null;
 
 export function getSessionId(): string {
-  if (typeof window === "undefined") return createSessionId();
-
-  try {
-    const existing = sessionStorage.getItem(SESSION_KEY);
-    if (existing) return existing;
-    const id = createSessionId();
-    sessionStorage.setItem(SESSION_KEY, id);
-    return id;
-  } catch {
-    return createSessionId();
-  }
+  if (typeof window === "undefined") return generateUUID();
+  let id = "";
+  let storageBlocked = false;
+  try { id = sessionStorage.getItem(SESSION_KEY) || ""; } catch { storageBlocked = true; }
+  if (id) return id;
+  id = fallbackSessionId ?? generateUUID();
+  try { sessionStorage.setItem(SESSION_KEY, id); } catch { storageBlocked = true; }
+  fallbackSessionId = storageBlocked ? id : null;
+  return id;
 }
 
 export function getAttributionHeaders(path?: string): Record<string, string> {
