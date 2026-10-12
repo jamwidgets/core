@@ -42,7 +42,7 @@ await postComment({
   authorName: "John",
   content: "Great post!",
   authorEmail: "john@example.com", // optional
-  parentId: "comment-id", // optional, for replies
+  parentId: comment.id, // optional, for replies: the ID of the comment being answered
 });
 ```
 
@@ -77,6 +77,10 @@ await removeReaction({
 ```ts
 import { submitForm } from "@jamwidgets/core";
 
+// When the form was shown, in Unix seconds. Submissions sent within a few
+// seconds of this are held for review, so record it on render, not on submit.
+const formLoadTime = Math.floor(Date.now() / 1000);
+
 await submitForm({
   siteKey: "your-key",
   formSlug: "contact",
@@ -85,7 +89,30 @@ await submitForm({
     email: "john@example.com",
     message: "Hello!",
   },
+  formLoadTime,
 });
+```
+
+Each call sends a new idempotency key. To retry the same submission without
+storing it twice, pass the same `requestId` again, or use `FormController`,
+which keeps the load time and retry key for you.
+
+### Errors
+
+A failed request throws a `JamwidgetsApiError` whose `message` is the
+server's explanation (for example "Email is invalid"), with `status` and
+`code` (such as `"validation"`) for branching:
+
+```ts
+import { JamwidgetsApiError, subscribe } from "@jamwidgets/core";
+
+try {
+  await subscribe({ siteKey: "your-key", email });
+} catch (error) {
+  if (error instanceof JamwidgetsApiError && error.code === "validation") {
+    showFieldError(error.message);
+  }
+}
 ```
 
 ### Subscriptions

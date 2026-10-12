@@ -239,6 +239,41 @@ export function getVisitorId(): string {
   return visitorId;
 }
 
+/**
+ * Error thrown when the Jamwidgets API answers with a non-2xx status.
+ * `message` is the server's own explanation when it sent one.
+ */
+export class JamwidgetsApiError extends Error {
+  readonly status: number;
+  /** Server error code, e.g. "validation" or "notFound", when available */
+  readonly code?: string;
+
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = "JamwidgetsApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+/**
+ * Build an error from a failed API response. Reads the server's
+ * `{ message, code }` body; falls back to `context` and the status code,
+ * since `statusText` is empty over HTTP/2.
+ */
+export async function apiError(response: Response, context: string): Promise<JamwidgetsApiError> {
+  let message = "";
+  let code: string | undefined;
+  try {
+    const body = (await response.json()) as { message?: unknown; code?: unknown };
+    if (typeof body?.message === "string") message = body.message.trim();
+    if (typeof body?.code === "string") code = body.code;
+  } catch {
+    // Not JSON (a proxy page, an empty body): use the fallback below.
+  }
+  return new JamwidgetsApiError(message || `${context} (HTTP ${response.status})`, response.status, code);
+}
+
 /** Get common headers for API requests */
 function getHeaders(siteKey: string, path?: string): Record<string, string> {
   let visitorId: string;
@@ -307,19 +342,26 @@ export async function fetchSiteConfig(options: JamwidgetsConfig): Promise<SiteCo
 export interface SubmitFormOptions extends JamwidgetsConfig {
   formSlug: string;
   data: Record<string, unknown>;
-  /** Form load timestamp for spam detection (auto-set if not provided) */
+  /**
+   * When the form was shown, in Unix seconds. The server holds submissions
+   * sent within a few seconds of this for review, so pass the real load time
+   * (FormController does) or leave it out; never the time of submission.
+   */
   formLoadTime?: number;
+  /**
+   * Idempotency key. Reuse it when retrying the same submission so the
+   * server stores it once; a new one is generated when omitted.
+   */
+  requestId?: string;
 }
 
 export async function submitForm(options: SubmitFormOptions): Promise<FormSubmitResponse> {
-  const { endpoint, formSlug, data, formLoadTime } = options;
+  const { endpoint, formSlug, data, formLoadTime, requestId } = options;
   const siteKey = getSiteKey(options);
   const url = buildUrl(endpoint, `/forms/${formSlug}/submit`);
 
-  const payload = {
-    ...data,
-    _seriph_ts: formLoadTime || Math.floor(Date.now() / 1000),
-  };
+  const payload: Record<string, unknown> = { ...data, _seriph_id: requestId || generateUUID() };
+  if (formLoadTime) payload._seriph_ts = formLoadTime;
 
   const response = await fetch(url, {
     method: "POST",
@@ -331,7 +373,7 @@ export async function submitForm(options: SubmitFormOptions): Promise<FormSubmit
   });
 
   if (!response.ok) {
-    throw new Error(`Form submission failed: ${response.statusText}`);
+    throw await apiError(response, "Form submission failed");
   }
 
   return response.json();
@@ -355,7 +397,7 @@ export async function fetchComments(options: FetchCommentsOptions): Promise<Comm
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch comments: ${response.statusText}`);
+    throw await apiError(response, "Failed to fetch comments");
   }
 
   const data = await response.json();
@@ -367,11 +409,23 @@ export interface PostCommentOptions extends JamwidgetsConfig {
   authorName: string;
   authorEmail?: string;
   content: string;
-  parentId?: string;
+  /** ID of the comment being replied to, as returned in `Comment.id` */
+  parentId?: string | number;
+}
+
+/** Comment IDs arrive as strings; the API takes the parent as an integer. */
+function commentParentId(parentId: string | number | undefined): number | undefined {
+  if (parentId === undefined || parentId === "") return undefined;
+  const text = String(parentId).trim();
+  if (!/^\d+$/.test(text) || !Number.isSafeInteger(Number(text))) {
+    throw new Error(`Invalid parentId "${parentId}": expected a comment ID`);
+  }
+  return Number(text);
 }
 
 export async function postComment(options: PostCommentOptions): Promise<Comment> {
-  const { endpoint, pageId, authorName, authorEmail, content, parentId } = options;
+  const { endpoint, pageId, authorName, authorEmail, content } = options;
+  const parentId = commentParentId(options.parentId);
   const siteKey = getSiteKey(options);
   const url = buildUrl(endpoint, `/comments/${encodeURIComponent(pageId)}`);
 
@@ -390,7 +444,7 @@ export async function postComment(options: PostCommentOptions): Promise<Comment>
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to post comment: ${response.statusText}`);
+    throw await apiError(response, "Failed to post comment");
   }
 
   const data = await response.json();
@@ -420,7 +474,7 @@ export async function fetchReactions(options: FetchReactionsOptions): Promise<Fe
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch reactions: ${response.statusText}`);
+    throw await apiError(response, "Failed to fetch reactions");
   }
 
   const data = await response.json();
@@ -453,7 +507,7 @@ export async function addReaction(
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to add reaction: ${response.statusText}`);
+    throw await apiError(response, "Failed to add reaction");
   }
 
   const data = await response.json();
@@ -482,7 +536,7 @@ export async function removeReaction(
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to remove reaction: ${response.statusText}`);
+    throw await apiError(response, "Failed to remove reaction");
   }
 
   const data = await response.json();
@@ -512,7 +566,7 @@ export async function subscribe(options: SubscribeOptions): Promise<SubscribeRes
   });
 
   if (!response.ok) {
-    throw new Error(`Subscription failed: ${response.statusText}`);
+    throw await apiError(response, "Subscription failed");
   }
 
   return response.json();
@@ -545,7 +599,7 @@ export async function fetchPosts(options: FetchPostsOptions): Promise<Jamwidgets
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch posts: ${response.status} ${response.statusText}`);
+    throw await apiError(response, "Failed to fetch posts");
   }
 
   const data = await response.json();
@@ -571,7 +625,7 @@ export async function fetchPost(options: FetchPostOptions): Promise<JamwidgetsPo
   }
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch post: ${response.status} ${response.statusText}`);
+    throw await apiError(response, "Failed to fetch post");
   }
 
   const data = await response.json();
@@ -605,7 +659,7 @@ export async function fetchGalleries(options: FetchGalleriesOptions): Promise<Ga
       ...(options.origin ? { Origin: options.origin } : {}),
     },
   });
-  if (!response.ok) throw new Error(`Failed to fetch galleries: ${response.status}`);
+  if (!response.ok) throw await apiError(response, "Failed to fetch galleries");
   return response.json();
 }
 
@@ -627,7 +681,7 @@ export async function fetchGallery(options: FetchGalleryOptions): Promise<Jamwid
     },
   });
   if (response.status === 404) return null;
-  if (!response.ok) throw new Error(`Failed to fetch gallery: ${response.status}`);
+  if (!response.ok) throw await apiError(response, "Failed to fetch gallery");
   const data = await response.json();
   return data.gallery ?? data;
 }
@@ -648,7 +702,7 @@ export async function fetchRandomPhoto(options: FetchRandomPhotoOptions): Promis
     },
   });
   if (response.status === 404) return null;
-  if (!response.ok) throw new Error(`Failed to fetch random photo: ${response.status}`);
+  if (!response.ok) throw await apiError(response, "Failed to fetch random photo");
   const data = await response.json();
   return data.gallery_photo ?? data.galleryPhoto ?? data;
 }
@@ -686,7 +740,7 @@ export async function joinWaitlist(options: JoinWaitlistOptions): Promise<JoinWa
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to join waitlist: ${response.statusText}`);
+    throw await apiError(response, "Failed to join waitlist");
   }
 
   return response.json();
@@ -720,7 +774,7 @@ export async function getViewCounts(options: ViewCountsOptions): Promise<ViewCou
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to get view counts: ${response.statusText}`);
+    throw await apiError(response, "Failed to get view counts");
   }
 
   const data = await response.json();
@@ -738,7 +792,7 @@ export async function recordView(options: ViewCountsOptions): Promise<RecordView
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to record view: ${response.statusText}`);
+    throw await apiError(response, "Failed to record view");
   }
 
   const data = await response.json();
@@ -784,7 +838,7 @@ export async function submitFeedback(options: SubmitFeedbackOptions): Promise<Su
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to submit feedback: ${response.statusText}`);
+    throw await apiError(response, "Failed to submit feedback");
   }
 
   return response.json();
@@ -836,7 +890,7 @@ export async function fetchPoll(options: FetchPollOptions): Promise<PollWithResu
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch poll: ${response.statusText}`);
+    throw await apiError(response, "Failed to fetch poll");
   }
 
   const data = await response.json();
@@ -869,7 +923,7 @@ export async function votePoll(options: VotePollOptions): Promise<VotePollRespon
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to vote: ${response.statusText}`);
+    throw await apiError(response, "Failed to vote");
   }
 
   const data = await response.json();
@@ -903,7 +957,7 @@ export async function fetchAnnouncements(options: FetchAnnouncementsOptions): Pr
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch announcements: ${response.statusText}`);
+    throw await apiError(response, "Failed to fetch announcements");
   }
 
   const data = await response.json();
@@ -925,7 +979,7 @@ export async function dismissAnnouncement(options: DismissAnnouncementOptions): 
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to dismiss announcement: ${response.statusText}`);
+    throw await apiError(response, "Failed to dismiss announcement");
   }
 }
 
@@ -1121,6 +1175,8 @@ export class FormController {
   private formSlug: string;
   private listeners: Set<ControllerListener<FormState>> = new Set();
   private loadTime: number;
+  /** Idempotency key reused while the same data is retried */
+  private pending: { body: string; requestId: string } | null = null;
   private _state: FormState = { status: "idle", message: null, error: null };
 
   constructor(config: JamwidgetsConfig, formSlug: string) {
@@ -1151,12 +1207,20 @@ export class FormController {
     this.notify();
 
     try {
+      const body = JSON.stringify(data);
+      if (this.pending?.body !== body) {
+        this.pending = { body, requestId: generateUUID() };
+      }
+      const attempt = this.pending;
       const result = await submitForm({
         ...this.config,
         formSlug: this.formSlug,
         data,
         formLoadTime: this.loadTime,
+        requestId: attempt.requestId,
       });
+      // An overlapping submit with other data may own the key by now.
+      if (this.pending === attempt) this.pending = null;
       this._state = { status: "success", message: result.message, error: null };
       this.notify();
       return result;
@@ -1171,6 +1235,7 @@ export class FormController {
   reset(): void {
     this._state = { status: "idle", message: null, error: null };
     this.loadTime = Math.floor(Date.now() / 1000);
+    this.pending = null;
     this.notify();
   }
 }
@@ -1312,7 +1377,7 @@ export class CommentsController {
     }
   }
 
-  async post(authorName: string, content: string, options?: { authorEmail?: string; parentId?: string }): Promise<Comment> {
+  async post(authorName: string, content: string, options?: { authorEmail?: string; parentId?: string | number }): Promise<Comment> {
     try {
       const comment = await postComment({
         ...this.config,

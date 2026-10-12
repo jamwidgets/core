@@ -20,7 +20,7 @@ const styles = `
   .photo img,.cover img,.random img{display:block;width:100%;height:auto;aspect-ratio:var(--ratio,4/3);object-fit:var(--fit,cover)}
   figcaption{padding:.45rem .15rem 0;font-size:.875rem;color:color-mix(in srgb,currentColor 72%,transparent)}
   .tags{display:flex;gap:.4rem;overflow:auto;margin:0 0 1rem;padding:.1rem}.tag,.back{border:1px solid color-mix(in srgb,currentColor 20%,transparent);border-radius:999px;background:transparent;color:inherit;padding:.4rem .75rem;cursor:pointer}
-  .tag[aria-pressed=true]{background:currentColor;color:Canvas}.index{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr));gap:var(--jw-gap)}
+  .tag[aria-pressed=true]{background:color-mix(in srgb,currentColor 14%,transparent);border-color:currentColor;font-weight:600}.index{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr));gap:var(--jw-gap)}
   .card{border:1px solid color-mix(in srgb,currentColor 15%,transparent);border-radius:1rem;overflow:hidden;background:transparent;color:inherit;text-align:left;padding:0;cursor:pointer}
   .card-copy{display:block;padding:.85rem}.card strong{display:block;font-size:1.05rem}.card small{display:block;margin-top:.2rem;color:color-mix(in srgb,currentColor 60%,transparent)}
   dialog{border:0;border-radius:1rem;padding:0;max-width:min(94vw,72rem);max-height:92vh;background:#111;color:#fff}dialog::backdrop{background:#000b}
