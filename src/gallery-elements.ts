@@ -8,10 +8,11 @@ import {
   type GalleryPhoto,
   type GallerySummary,
   type JamwidgetsGallery,
+  warnMissingContent,
 } from "./index.js";
 
 const styles = `
-  :host{display:block;color:inherit;font:inherit;--jw-gap:clamp(.55rem,1.5vw,1rem)}
+  :host{display:block;color:inherit;font:inherit;--jw-gap:clamp(.55rem,1.5vw,1rem)}:host([hidden]){display:none}
   *{box-sizing:border-box}.state{padding:2rem;text-align:center;color:color-mix(in srgb,currentColor 60%,transparent)}
   .error{color:#b42318}.head{margin-bottom:1rem}.head h2{margin:0;font:700 clamp(1.4rem,3vw,2rem)/1.15 inherit}
   .head p{margin:.4rem 0 0;color:color-mix(in srgb,currentColor 66%,transparent)}
@@ -70,6 +71,7 @@ abstract class GalleryElement extends HTMLElementBase {
   }
   protected reload() {
     const generation = this.advanceGeneration();
+    this.hidden = false;
     this.loading();
     void this.load(generation);
   }
@@ -88,6 +90,12 @@ abstract class GalleryElement extends HTMLElementBase {
     return frame;
   }
   protected loading() { const frame = this.frame(); frame.className = "state"; frame.textContent = "Loading gallery…"; }
+  /** Missing or unpublished content: show nothing to visitors, tell the owner in the console. */
+  protected hideMissing(widget: string, slug: string) {
+    this.root?.replaceChildren();
+    this.hidden = true;
+    warnMissingContent(widget, slug);
+  }
   protected fail(error: unknown) { const frame = this.frame(); frame.className = "state error"; frame.textContent = error instanceof Error ? error.message : "Gallery unavailable"; }
   async brand(frame: HTMLElement) {
     try {
@@ -168,7 +176,7 @@ export class JamwidgetsGalleryElement extends GalleryElement {
       const tag = this.getAttribute("tag") ?? undefined;
       const gallery = await fetchGallery({ siteKey: this.siteKey, endpoint: this.endpoint, slug, tag });
       if (!this.isCurrent(generation)) return;
-      if (!gallery) throw new Error("Gallery not found");
+      if (!gallery) return this.hideMissing("Gallery", slug);
       const frame = renderGallery(this, gallery, tag); await this.brand(frame);
     } catch (error) { if (this.isCurrent(generation)) this.fail(error); }
   }
@@ -254,7 +262,8 @@ export class JamwidgetsRandomPhotoElement extends GalleryElement {
       const seed = this.getAttribute("seed") ?? globalThis.crypto?.randomUUID?.() ?? String(Date.now());
       const photo = await fetchRandomPhoto({ siteKey: this.siteKey, endpoint: this.endpoint, slug, tag: this.getAttribute("tag") ?? undefined, seed });
       if (!this.isCurrent(generation)) return;
-      if (!photo) throw new Error("No matching photo"); const frame = this.frame(); const figure = document.createElement("figure"); figure.className = "random"; figure.append(image(photo));
+      if (!photo) return this.hideMissing("Random photo from gallery", slug);
+      const frame = this.frame(); const figure = document.createElement("figure"); figure.className = "random"; figure.append(image(photo));
       if (photo.caption) { const caption = document.createElement("figcaption"); caption.textContent = photo.caption; figure.append(caption); } frame.append(figure); await this.brand(frame);
     } catch (error) { if (this.isCurrent(generation)) this.fail(error); }
   }

@@ -274,6 +274,27 @@ export async function apiError(response: Response, context: string): Promise<Jam
   return new JamwidgetsApiError(message || `${context} (HTTP ${response.status})`, response.status, code);
 }
 
+/** True when the API said the requested content (poll, gallery, post…) does not exist. */
+export function isNotFound(error: unknown): boolean {
+  return error instanceof JamwidgetsApiError && error.status === 404;
+}
+
+const warnedMissing = new Set<string>();
+
+/**
+ * Tell the site owner, once per page, that a widget's content is missing.
+ * Widgets render nothing in that case, so visitors never see an error for a
+ * typo'd slug or content that is not published yet.
+ */
+export function warnMissingContent(widget: string, slug: string): void {
+  const key = `${widget}:${slug}`;
+  if (warnedMissing.has(key)) return;
+  warnedMissing.add(key);
+  console.warn(
+    `[jamwidgets] ${widget} "${slug}" was not found, so it is hidden. Create or publish it in the Jamwidgets dashboard.`,
+  );
+}
+
 /** Get common headers for API requests */
 function getHeaders(siteKey: string, path?: string): Record<string, string> {
   let visitorId: string;
@@ -883,7 +904,7 @@ export interface FetchPollOptions extends JamwidgetsConfig {
 export async function fetchPoll(options: FetchPollOptions): Promise<PollWithResults> {
   const { endpoint, slug } = options;
   const siteKey = getSiteKey(options);
-  const url = buildUrl(endpoint, `/polls/${slug}`);
+  const url = buildUrl(endpoint, `/polls/${encodeURIComponent(slug)}`);
 
   const response = await fetch(url, {
     headers: getHeaders(siteKey),
@@ -987,7 +1008,12 @@ export async function dismissAnnouncement(options: DismissAnnouncementOptions): 
 // Controllers - Headless state management
 // =============================================================================
 
-export type ControllerStatus = "idle" | "loading" | "success" | "error";
+/**
+ * Lifecycle of a widget controller. `notFound` means the configured content
+ * (a poll slug, for example) does not exist or is not published: render
+ * nothing rather than an error.
+ */
+export type ControllerStatus = "idle" | "loading" | "success" | "error" | "notFound";
 
 /** State for subscribe controllers */
 export interface SubscribeState {
@@ -1508,8 +1534,11 @@ export class PollController {
     }
   }
 
-  /** Fetch poll data from the server */
-  async fetch(): Promise<PollWithResults> {
+  /**
+   * Fetch poll data from the server. Resolves `null` (status `notFound`)
+   * when the poll does not exist or is not published.
+   */
+  async fetch(): Promise<PollWithResults | null> {
     this._state = { ...this._state, status: "loading", error: null };
     this.notify();
 
@@ -1519,6 +1548,12 @@ export class PollController {
       this.notify();
       return poll;
     } catch (e) {
+      if (isNotFound(e)) {
+        warnMissingContent("Poll", this.slug);
+        this._state = { poll: null, status: "notFound", error: null };
+        this.notify();
+        return null;
+      }
       const error = e instanceof Error ? e : new Error(String(e));
       this._state = { ...this._state, status: "error", error };
       this.notify();

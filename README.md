@@ -16,11 +16,17 @@ This is the base package used by `@jamwidgets/astro`, `@jamwidgets/react`, and `
 ## Gallery elements
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/npm/@jamwidgets/core@0.5.0/dist/gallery-elements.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@jamwidgets/core@0.7.0/dist/gallery-elements.js"></script>
 <jamwidgets-gallery-index site-key="your-key" deep-link></jamwidgets-gallery-index>
 <jamwidgets-gallery site-key="your-key" slug="field-notes" tag="portraits"></jamwidgets-gallery>
 <jamwidgets-random-photo site-key="your-key" slug="field-notes" seed="homepage"></jamwidgets-random-photo>
 ```
+
+A gallery or random photo whose slug doesn't exist, isn't published or has no matching photo renders nothing and logs a `console.warn` naming the slug. Other failures still show a message.
+
+## Missing content
+
+Widgets tied to a piece of content (a poll, a gallery) hide themselves when the API answers 404 for it, so a typo'd slug or unpublished content never shows visitors an error. Each logs one `console.warn` with the widget and slug. Controllers report it as status `"notFound"` with no error, and `PollController.fetch()` resolves `null`. `isNotFound(error)` checks a caught `JamwidgetsApiError` the same way.
 
 ## API Functions
 
