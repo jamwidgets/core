@@ -122,6 +122,28 @@ export type SeriphPost = JamwidgetsPost;
 // Helpers
 // =============================================================================
 
+const RETRY_AFTER_CAP_MS = 2000;
+
+/**
+ * fetch for widget requests: a 429 is retried once after the server's
+ * Retry-After delay (capped at 2s, 1s if unstated). The server refuses a
+ * rate-limited request before doing any work, so retrying a write is safe.
+ */
+export async function widgetFetch(
+  input: string | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const response = await fetch(input, init);
+  if (response.status !== 429) return response;
+  const seconds = Number(response.headers.get("Retry-After"));
+  const delay =
+    Number.isFinite(seconds) && seconds > 0
+      ? Math.min(seconds * 1000, RETRY_AFTER_CAP_MS)
+      : 1000;
+  await new Promise((resolve) => setTimeout(resolve, delay));
+  return fetch(input, init);
+}
+
 /** Build full API URL from endpoint and path */
 export function buildUrl(endpoint: string | undefined, path: string): string {
   const base = (endpoint || DEFAULT_ENDPOINT).replace(/\/+$/, "");
@@ -344,7 +366,7 @@ export async function fetchSiteConfig(options: JamwidgetsConfig): Promise<SiteCo
   if (existing) return existing;
 
   const url = buildUrl(endpoint, "/site");
-  const promise = fetch(url, { headers: getHeaders(siteKey) })
+  const promise = widgetFetch(url, { headers: getHeaders(siteKey) })
     .then(async (response) => {
       if (!response.ok) return null;
       const data = await response.json();
@@ -384,7 +406,7 @@ export async function submitForm(options: SubmitFormOptions): Promise<FormSubmit
   const payload: Record<string, unknown> = { ...data, _seriph_id: requestId || generateUUID() };
   if (formLoadTime) payload._seriph_ts = formLoadTime;
 
-  const response = await fetch(url, {
+  const response = await widgetFetch(url, {
     method: "POST",
     headers: {
       ...getHeaders(siteKey),
@@ -413,7 +435,7 @@ export async function fetchComments(options: FetchCommentsOptions): Promise<Comm
   const siteKey = getSiteKey(options);
   const url = buildUrl(endpoint, `/comments/${encodeURIComponent(pageId)}`);
 
-  const response = await fetch(url, {
+  const response = await widgetFetch(url, {
     headers: getHeaders(siteKey),
   });
 
@@ -450,7 +472,7 @@ export async function postComment(options: PostCommentOptions): Promise<Comment>
   const siteKey = getSiteKey(options);
   const url = buildUrl(endpoint, `/comments/${encodeURIComponent(pageId)}`);
 
-  const response = await fetch(url, {
+  const response = await widgetFetch(url, {
     method: "POST",
     headers: {
       ...getHeaders(siteKey, pageId),
@@ -490,7 +512,7 @@ export async function fetchReactions(options: FetchReactionsOptions): Promise<Fe
   const siteKey = getSiteKey(options);
   const url = buildUrl(endpoint, `/reactions/${encodeURIComponent(pageId)}`);
 
-  const response = await fetch(url, {
+  const response = await widgetFetch(url, {
     headers: getHeaders(siteKey),
   });
 
@@ -518,7 +540,7 @@ export async function addReaction(
   const siteKey = getSiteKey(options);
   const url = buildUrl(endpoint, `/reactions/${encodeURIComponent(pageId)}`);
 
-  const response = await fetch(url, {
+  const response = await widgetFetch(url, {
     method: "POST",
     headers: {
       ...getHeaders(siteKey, pageId),
@@ -547,7 +569,7 @@ export async function removeReaction(
   const siteKey = getSiteKey(options);
   const url = buildUrl(endpoint, `/reactions/${encodeURIComponent(pageId)}`);
 
-  const response = await fetch(url, {
+  const response = await widgetFetch(url, {
     method: "DELETE",
     headers: {
       ...getHeaders(siteKey),
@@ -577,7 +599,7 @@ export async function subscribe(options: SubscribeOptions): Promise<SubscribeRes
   const siteKey = getSiteKey(options);
   const url = buildUrl(endpoint, "/subscribe");
 
-  const response = await fetch(url, {
+  const response = await widgetFetch(url, {
     method: "POST",
     headers: {
       ...getHeaders(siteKey),
@@ -615,7 +637,7 @@ export async function fetchPosts(options: FetchPostsOptions): Promise<Jamwidgets
     url.searchParams.set("tag", tag);
   }
 
-  const response = await fetch(url.toString(), {
+  const response = await widgetFetch(url.toString(), {
     headers: getHeaders(siteKey),
   });
 
@@ -637,7 +659,7 @@ export async function fetchPost(options: FetchPostOptions): Promise<JamwidgetsPo
   const siteKey = getSiteKey(options);
   const baseUrl = (endpoint || DEFAULT_ENDPOINT).replace(/\/+$/, "") + API_PATH;
 
-  const response = await fetch(`${baseUrl}/posts/${encodeURIComponent(slug)}`, {
+  const response = await widgetFetch(`${baseUrl}/posts/${encodeURIComponent(slug)}`, {
     headers: getHeaders(siteKey),
   });
 
@@ -674,7 +696,7 @@ export async function fetchGalleries(options: FetchGalleriesOptions): Promise<Ga
   const url = new URL(buildUrl(options.endpoint, "/galleries"));
   url.searchParams.set("limit", String(options.limit ?? 100));
   if (options.after) url.searchParams.set("after", options.after);
-  const response = await fetch(url, {
+  const response = await widgetFetch(url, {
     headers: {
       ...getHeaders(siteKey),
       ...(options.origin ? { Origin: options.origin } : {}),
@@ -695,7 +717,7 @@ export async function fetchGallery(options: FetchGalleryOptions): Promise<Jamwid
   const siteKey = getSiteKey(options);
   const url = new URL(buildUrl(options.endpoint, `/galleries/${encodeURIComponent(options.slug)}`));
   if (options.tag) url.searchParams.set("tag", options.tag);
-  const response = await fetch(url, {
+  const response = await widgetFetch(url, {
     headers: {
       ...getHeaders(siteKey),
       ...(options.origin ? { Origin: options.origin } : {}),
@@ -716,7 +738,7 @@ export async function fetchRandomPhoto(options: FetchRandomPhotoOptions): Promis
   const url = new URL(buildUrl(options.endpoint, `/galleries/${encodeURIComponent(options.slug)}/random`));
   if (options.tag) url.searchParams.set("tag", options.tag);
   if (options.seed) url.searchParams.set("seed", options.seed);
-  const response = await fetch(url, {
+  const response = await widgetFetch(url, {
     headers: {
       ...getHeaders(siteKey),
       ...(options.origin ? { Origin: options.origin } : {}),
@@ -751,7 +773,7 @@ export async function joinWaitlist(options: JoinWaitlistOptions): Promise<JoinWa
   const siteKey = getSiteKey(options);
   const url = buildUrl(endpoint, "/waitlist");
 
-  const response = await fetch(url, {
+  const response = await widgetFetch(url, {
     method: "POST",
     headers: {
       ...getHeaders(siteKey),
@@ -790,7 +812,7 @@ export async function getViewCounts(options: ViewCountsOptions): Promise<ViewCou
   const siteKey = getSiteKey(options);
   const url = buildUrl(endpoint, `/views/${encodeURIComponent(pageId)}`);
 
-  const response = await fetch(url, {
+  const response = await widgetFetch(url, {
     headers: getHeaders(siteKey),
   });
 
@@ -807,7 +829,7 @@ export async function recordView(options: ViewCountsOptions): Promise<RecordView
   const siteKey = getSiteKey(options);
   const url = buildUrl(endpoint, `/views/${encodeURIComponent(pageId)}`);
 
-  const response = await fetch(url, {
+  const response = await widgetFetch(url, {
     method: "POST",
     headers: getHeaders(siteKey),
   });
@@ -844,7 +866,7 @@ export async function submitFeedback(options: SubmitFeedbackOptions): Promise<Su
   const siteKey = getSiteKey(options);
   const url = buildUrl(endpoint, "/feedback");
 
-  const response = await fetch(url, {
+  const response = await widgetFetch(url, {
     method: "POST",
     headers: {
       ...getHeaders(siteKey),
@@ -906,7 +928,7 @@ export async function fetchPoll(options: FetchPollOptions): Promise<PollWithResu
   const siteKey = getSiteKey(options);
   const url = buildUrl(endpoint, `/polls/${encodeURIComponent(slug)}`);
 
-  const response = await fetch(url, {
+  const response = await widgetFetch(url, {
     headers: getHeaders(siteKey),
   });
 
@@ -934,7 +956,7 @@ export async function votePoll(options: VotePollOptions): Promise<VotePollRespon
   const siteKey = getSiteKey(options);
   const url = buildUrl(endpoint, `/polls/${slug}/vote`);
 
-  const response = await fetch(url, {
+  const response = await widgetFetch(url, {
     method: "POST",
     headers: {
       ...getHeaders(siteKey),
@@ -973,7 +995,7 @@ export async function fetchAnnouncements(options: FetchAnnouncementsOptions): Pr
   const siteKey = getSiteKey(options);
   const url = buildUrl(endpoint, "/announcements");
 
-  const response = await fetch(url, {
+  const response = await widgetFetch(url, {
     headers: getHeaders(siteKey),
   });
 
@@ -994,7 +1016,7 @@ export async function dismissAnnouncement(options: DismissAnnouncementOptions): 
   const siteKey = getSiteKey(options);
   const url = buildUrl(endpoint, `/announcements/${announcementId}/dismiss`);
 
-  const response = await fetch(url, {
+  const response = await widgetFetch(url, {
     method: "POST",
     headers: getHeaders(siteKey),
   });
