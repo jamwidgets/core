@@ -160,10 +160,23 @@ const calls: Array<[string, () => Promise<unknown>]> = [
     "postComment reply",
     () => core.postComment({ ...config, pageId: "/post", authorName: "Ada", content: "Hi", parentId: "42" }),
   ],
+  [
+    "postComment spam fields",
+    () =>
+      core.postComment({
+        ...config,
+        pageId: "/post",
+        authorName: "Ada",
+        content: "Hi",
+        honeypot: "bot",
+        formLoadTime: 1_760_000_000,
+      }),
+  ],
   ["fetchReactions", () => core.fetchReactions({ ...config, pageId: "/post" })],
   ["addReaction", () => core.addReaction({ ...config, pageId: "/post", reactionType: "love" })],
   ["removeReaction", () => core.removeReaction({ ...config, pageId: "/post", reactionType: "love" })],
   ["subscribe", () => core.subscribe({ ...config, email: "a@example.test" })],
+  ["subscribe honeypot", () => core.subscribe({ ...config, email: "a@example.test", honeypot: "bot" })],
   ["fetchPosts", () => core.fetchPosts({ ...config, tag: "news", limit: 10 })],
   ["fetchPost", () => core.fetchPost({ ...config, slug: "hello" })],
   ["joinWaitlist", () => core.joinWaitlist({ ...config, email: "a@example.test", name: "Ada", source: "home" })],
@@ -179,6 +192,7 @@ const calls: Array<[string, () => Promise<unknown>]> = [
   ["votePoll", () => core.votePoll({ ...config, slug: "favorite", selectedOptions: ["alpha"] })],
   ["fetchAnnouncements", () => core.fetchAnnouncements(config)],
   ["dismissAnnouncement", () => core.dismissAnnouncement({ ...config, announcementId: 7 })],
+  ["dismissAnnouncement string ID", () => core.dismissAnnouncement({ ...config, announcementId: "7" })],
 ];
 
 describe.skipIf(!hasSpec)("widget API contract", () => {
@@ -294,6 +308,33 @@ describe("postComment", () => {
       core.postComment({ ...config, pageId: "/p", authorName: "A", content: "B", parentId: "abc" }),
     ).rejects.toThrow(/parentId/);
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("sends the honeypot and the form's load time", async () => {
+    const request = await capture(() =>
+      core.postComment({
+        ...config,
+        pageId: "/p",
+        authorName: "A",
+        content: "B",
+        parentId: "42",
+        honeypot: "bot",
+        formLoadTime: 1_760_000_000,
+      }),
+    );
+    expect(request.body).toMatchObject({ parentId: 42, _gotcha: "bot", _seriph_ts: 1_760_000_000 });
+  });
+});
+
+describe("subscribe", () => {
+  it("sends the honeypot only when it is filled in", async () => {
+    expect((await capture(() => core.subscribe({ ...config, email: "a@example.test", honeypot: "bot" }))).body).toEqual({
+      email: "a@example.test",
+      _gotcha: "bot",
+    });
+    expect((await capture(() => core.subscribe({ ...config, email: "a@example.test", honeypot: "" }))).body).toEqual({
+      email: "a@example.test",
+    });
   });
 });
 

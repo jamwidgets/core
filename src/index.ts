@@ -454,6 +454,10 @@ export interface PostCommentOptions extends JamwidgetsConfig {
   content: string;
   /** ID of the comment being replied to, as returned in `Comment.id` */
   parentId?: string | number;
+  /** Honeypot field value; real visitors leave it empty */
+  honeypot?: string;
+  /** When the comment form was shown, in Unix seconds (never the submit time) */
+  formLoadTime?: number;
 }
 
 /** Comment IDs arrive as strings; the API takes the parent as an integer. */
@@ -467,7 +471,7 @@ function commentParentId(parentId: string | number | undefined): number | undefi
 }
 
 export async function postComment(options: PostCommentOptions): Promise<Comment> {
-  const { endpoint, pageId, authorName, authorEmail, content } = options;
+  const { endpoint, pageId, authorName, authorEmail, content, honeypot, formLoadTime } = options;
   const parentId = commentParentId(options.parentId);
   const siteKey = getSiteKey(options);
   const url = buildUrl(endpoint, `/comments/${encodeURIComponent(pageId)}`);
@@ -483,6 +487,8 @@ export async function postComment(options: PostCommentOptions): Promise<Comment>
       authorEmail,
       content,
       parentId,
+      _gotcha: honeypot || undefined,
+      _seriph_ts: formLoadTime || undefined,
     }),
   });
 
@@ -592,10 +598,12 @@ export async function removeReaction(
 
 export interface SubscribeOptions extends JamwidgetsConfig {
   email: string;
+  /** Honeypot field value; real visitors leave it empty */
+  honeypot?: string;
 }
 
 export async function subscribe(options: SubscribeOptions): Promise<SubscribeResponse> {
-  const { endpoint, email } = options;
+  const { endpoint, email, honeypot } = options;
   const siteKey = getSiteKey(options);
   const url = buildUrl(endpoint, "/subscribe");
 
@@ -605,7 +613,7 @@ export async function subscribe(options: SubscribeOptions): Promise<SubscribeRes
       ...getHeaders(siteKey),
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, _gotcha: honeypot || undefined }),
   });
 
   if (!response.ok) {
@@ -1008,13 +1016,14 @@ export async function fetchAnnouncements(options: FetchAnnouncementsOptions): Pr
 }
 
 export interface DismissAnnouncementOptions extends JamwidgetsConfig {
-  announcementId: number;
+  /** The announcement's `id`; the API sends it as a string */
+  announcementId: string | number;
 }
 
 export async function dismissAnnouncement(options: DismissAnnouncementOptions): Promise<void> {
   const { endpoint, announcementId } = options;
   const siteKey = getSiteKey(options);
-  const url = buildUrl(endpoint, `/announcements/${announcementId}/dismiss`);
+  const url = buildUrl(endpoint, `/announcements/${encodeURIComponent(String(announcementId))}/dismiss`);
 
   const response = await widgetFetch(url, {
     method: "POST",
