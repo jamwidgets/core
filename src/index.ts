@@ -899,7 +899,7 @@ export async function submitFeedback(options: SubmitFeedbackOptions): Promise<Su
 // API Functions - Polls
 // =============================================================================
 
-export type ShowResultsMode = "always" | "after_vote" | "after_end" | "never";
+export type ShowResultsMode = "always" | "afterVote" | "afterEnd" | "never";
 
 export interface PollOption {
   id: string;
@@ -912,19 +912,61 @@ export interface PollSettings {
 }
 
 export interface Poll {
-  id: number;
+  id: string;
+  slug: string;
   question: string;
   options: PollOption[];
   settings: PollSettings;
-  endsAt?: string;
+  endsAt: string | null;
   isActive: boolean;
 }
 
 export interface PollWithResults extends Poll {
+  /** Votes per option ID; empty when the poll's settings hide results */
   results: Record<string, number>;
   totalVotes: number;
-  /** Options the current visitor has voted for */
-  userVotes?: string[];
+  /** Options the current visitor has voted for; null before they vote */
+  userVotes: string[] | null;
+}
+
+/** What a poll widget should show the current visitor. */
+export interface PollView {
+  hasVoted: boolean;
+  isEnded: boolean;
+  /** The visitor may still vote */
+  canVote: boolean;
+  /** Counts are visible; the server sends none when settings hide them */
+  showResults: boolean;
+  /** Footer status */
+  status: "" | "Ended" | "Closed" | "Voted";
+}
+
+export function describePoll(poll: PollWithResults, now: Date = new Date()): PollView {
+  const hasVoted = !!poll.userVotes && poll.userVotes.length > 0;
+  const isEnded = poll.endsAt ? new Date(poll.endsAt) < now : false;
+  return {
+    hasVoted,
+    isEnded,
+    canVote: poll.isActive && !isEnded && !hasVoted,
+    showResults: Object.keys(poll.results).length > 0,
+    status: isEnded ? "Ended" : !poll.isActive ? "Closed" : hasVoted ? "Voted" : "",
+  };
+}
+
+/**
+ * Whether a visitor who just voted may see counts. Mirrors the server, so an
+ * older server that returns counts with every vote cannot reveal hidden ones.
+ */
+function resultsVisibleAfterVote(poll: Poll, now: Date = new Date()): boolean {
+  switch (poll.settings.showResults) {
+    case "always":
+    case "afterVote":
+      return true;
+    case "afterEnd":
+      return !!poll.endsAt && new Date(poll.endsAt) < now;
+    default:
+      return false;
+  }
 }
 
 export interface FetchPollOptions extends JamwidgetsConfig {
@@ -962,7 +1004,7 @@ export interface VotePollResponse {
 export async function votePoll(options: VotePollOptions): Promise<VotePollResponse> {
   const { endpoint, slug, selectedOptions } = options;
   const siteKey = getSiteKey(options);
-  const url = buildUrl(endpoint, `/polls/${slug}/vote`);
+  const url = buildUrl(endpoint, `/polls/${encodeURIComponent(slug)}/vote`);
 
   const response = await widgetFetch(url, {
     method: "POST",
@@ -1540,12 +1582,15 @@ export interface PollState {
 export class PollController {
   private config: JamwidgetsConfig;
   private slug: string;
+  private widget: string;
   private listeners: Set<ControllerListener<PollState>> = new Set();
   private _state: PollState = { poll: null, status: "idle", error: null };
 
-  constructor(config: JamwidgetsConfig, slug: string) {
+  /** `widget` names the widget in the console warning for a missing poll. */
+  constructor(config: JamwidgetsConfig, slug: string, widget = "Poll") {
     this.config = config;
     this.slug = slug;
+    this.widget = widget;
   }
 
   getState(): PollState {
@@ -1580,7 +1625,7 @@ export class PollController {
       return poll;
     } catch (e) {
       if (isNotFound(e)) {
-        warnMissingContent("Poll", this.slug);
+        warnMissingContent(this.widget, this.slug);
         this._state = { poll: null, status: "notFound", error: null };
         this.notify();
         return null;
@@ -1600,13 +1645,18 @@ export class PollController {
         slug: this.slug,
         selectedOptions,
       });
-      // Update state with new results
-      if (this._state.poll) {
-        this._state.poll = {
-          ...this._state.poll,
-          results: result.results,
-          totalVotes: result.totalVotes,
-          userVotes: selectedOptions,
+      const poll = this._state.poll;
+      if (poll) {
+        const visible = resultsVisibleAfterVote(poll);
+        this._state = {
+          ...this._state,
+          error: null,
+          poll: {
+            ...poll,
+            results: visible ? result.results : {},
+            totalVotes: visible ? result.totalVotes : 0,
+            userVotes: selectedOptions,
+          },
         };
       }
       this.notify();

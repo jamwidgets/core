@@ -234,6 +234,27 @@ describe.skipIf(!hasSpec)("feedback types", () => {
   });
 });
 
+describe.skipIf(!hasSpec)("poll results modes", () => {
+  it("match the API's enum exactly", () => {
+    // Keep in step with core's ShowResultsMode.
+    const modes: core.ShowResultsMode[] = ["afterEnd", "afterVote", "always", "never"];
+    const settings = resolve({ $ref: "#/components/schemas/PollSettings" });
+    const properties = settings.properties as Record<string, Schema>;
+    expect([...(properties.showResults.enum as string[])].sort()).toEqual(modes);
+  });
+
+  it("PollWithResults covers every field the API requires", () => {
+    const poll: core.PollWithResults = {
+      id: "3", slug: "s", question: "q", options: [{ id: "a", text: "A" }],
+      settings: { multiSelect: false, showResults: "afterVote" }, endsAt: null, isActive: true,
+      results: {}, totalVotes: 0, userVotes: null,
+    };
+    const schema = resolve({ $ref: "#/components/schemas/PollWithResults" });
+    expect(validate(poll, schema)).toEqual([]);
+    expect(Object.keys(poll).sort()).toEqual([...(schema.required as string[])].sort());
+  });
+});
+
 describe("submitForm", () => {
   it("leaves the load time out instead of stamping the time of submission", async () => {
     const request = await capture(() => core.submitForm({ ...config, formSlug: "contact", data: { a: "b" } }));
