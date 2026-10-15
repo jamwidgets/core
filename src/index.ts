@@ -627,7 +627,22 @@ export async function subscribe(options: SubscribeOptions): Promise<SubscribeRes
 // API Functions - Posts
 // =============================================================================
 
-export interface FetchPostsOptions extends JamwidgetsConfig {
+/** Options for build-time (server-side) reads. */
+export interface ServerReadOptions {
+  /** Site origin sent by build-time loaders for allowed-origin validation. */
+  origin?: string;
+  /** User-Agent sent by build-time loaders. */
+  userAgent?: string;
+}
+
+function serverReadHeaders(options: ServerReadOptions): Record<string, string> {
+  return {
+    ...(options.origin ? { Origin: options.origin } : {}),
+    ...(options.userAgent ? { "User-Agent": options.userAgent } : {}),
+  };
+}
+
+export interface FetchPostsOptions extends JamwidgetsConfig, ServerReadOptions {
   /** Filter posts by tag */
   tag?: string;
   /** Maximum number of posts to fetch (default: 500) */
@@ -646,7 +661,7 @@ export async function fetchPosts(options: FetchPostsOptions): Promise<Jamwidgets
   }
 
   const response = await widgetFetch(url.toString(), {
-    headers: getHeaders(siteKey),
+    headers: { ...getHeaders(siteKey), ...serverReadHeaders(options) },
   });
 
   if (!response.ok) {
@@ -657,7 +672,7 @@ export async function fetchPosts(options: FetchPostsOptions): Promise<Jamwidgets
   return data.posts;
 }
 
-export interface FetchPostOptions extends JamwidgetsConfig {
+export interface FetchPostOptions extends JamwidgetsConfig, ServerReadOptions {
   /** The post slug to fetch */
   slug: string;
 }
@@ -668,7 +683,7 @@ export async function fetchPost(options: FetchPostOptions): Promise<JamwidgetsPo
   const baseUrl = (endpoint || DEFAULT_ENDPOINT).replace(/\/+$/, "") + API_PATH;
 
   const response = await widgetFetch(`${baseUrl}/posts/${encodeURIComponent(slug)}`, {
-    headers: getHeaders(siteKey),
+    headers: { ...getHeaders(siteKey), ...serverReadHeaders(options) },
   });
 
   if (response.status === 404) {
@@ -1030,7 +1045,7 @@ export async function votePoll(options: VotePollOptions): Promise<VotePollRespon
 export type AnnouncementType = "info" | "warning" | "success" | "error";
 
 export interface Announcement {
-  id: number;
+  id: string;
   content: string;
   announcementType: AnnouncementType;
   linkUrl?: string;
@@ -1678,7 +1693,7 @@ export class PollController {
 /** State for announcements controllers */
 export interface AnnouncementsState {
   announcements: Announcement[];
-  dismissed: Set<number>;
+  dismissed: Set<string>;
   status: ControllerStatus;
   error: Error | null;
 }
@@ -1746,7 +1761,7 @@ export class AnnouncementsController {
   }
 
   /** Dismiss an announcement */
-  async dismiss(announcementId: number): Promise<void> {
+  async dismiss(announcementId: string): Promise<void> {
     try {
       await dismissAnnouncement({ ...this.config, announcementId });
       this._state.dismissed.add(announcementId);
@@ -1828,18 +1843,23 @@ export class ViewCountsController {
 
   /** Record a view (automatically tracks unique visitors via visitor token) */
   async record(): Promise<RecordViewResponse> {
+    this._state = { ...this._state, status: "loading", error: null };
+    this.notify();
+
     try {
       const result = await recordView({ ...this.config, pageId: this.pageId });
       this._state = {
         ...this._state,
         views: result.views,
         uniqueVisitors: result.uniqueVisitors,
+        status: "success",
+        error: null,
       };
       this.notify();
       return result;
     } catch (e) {
       const error = e instanceof Error ? e : new Error(String(e));
-      this._state = { ...this._state, error };
+      this._state = { ...this._state, status: "error", error };
       this.notify();
       throw error;
     }

@@ -1,6 +1,6 @@
 {
   "name": "@jamwidgets/core",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Framework-agnostic API client and types for Jamwidgets",
   "repository": {
     "type": "git",
@@ -26,6 +26,9 @@
   },
   "files": [
     "dist"
+  ],
+  "sideEffects": [
+    "./dist/gallery-elements.js"
   ],
   "scripts": {
     "build": "tsc",
